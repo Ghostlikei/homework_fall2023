@@ -6,6 +6,7 @@ import gym
 import cv2
 from cs285.infrastructure import pytorch_util as ptu
 from typing import Dict, Tuple, List
+import torch
 
 ############################################
 ############################################
@@ -30,14 +31,18 @@ def sample_trajectory(
             )
 
         # TODO use the most recent ob and the policy to decide what to do
-        ac: np.ndarray = None
+        # ac: np.ndarray = None
+        ac = policy.forward(torch.tensor(ob).float()).sample().numpy()
+
+        # print("[DEBUG]: ac from policy is: ", ac)
 
         # TODO: use that action to take a step in the environment
-        next_ob, rew, done, _ = None, None, None, None
+        next_ob, rew, done, _ = env.step(ac)
 
         # TODO rollout can end due to done, or due to max_length
         steps += 1
-        rollout_done: bool = None
+        # rollout_done: bool = None
+        rollout_done = bool(done) or steps >= max_length
 
         # record result of taking that action
         obs.append(ob)
