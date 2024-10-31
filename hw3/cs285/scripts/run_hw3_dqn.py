@@ -1,3 +1,13 @@
+import os
+import sys
+
+# Get the current directory
+current_dir = os.path.abspath(os.getcwd())
+
+# Add the current directory to the system path if it's not already there
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 import time
 import argparse
 
@@ -91,9 +101,10 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         epsilon = exploration_schedule.value(step)
         
         # TODO(student): Compute action
-        action = ...
+        action = agent.get_action(observation, epsilon)
 
         # TODO(student): Step the environment
+        next_observation, reward, done, info = env.step(action)
 
         next_observation = np.asarray(next_observation)
         truncated = info.get("TimeLimit.truncated", False)
@@ -102,10 +113,17 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         if isinstance(replay_buffer, MemoryEfficientReplayBuffer):
             # We're using the memory-efficient replay buffer,
             # so we only insert next_observation (not observation)
-            ...
+            replay_buffer.insert(action=action, 
+                                 reward=reward, 
+                                 next_observation=next_observation[-1, ...], 
+                                 done=done)
         else:
             # We're using the regular replay buffer
-            ...
+            replay_buffer.insert(observation=observation,
+                                 action=action,
+                                 reward=reward,
+                                 next_observation=next_observation,
+                                 done=done)
 
         # Handle episode termination
         if done:
@@ -119,13 +137,18 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         # Main DQN training loop
         if step >= config["learning_starts"]:
             # TODO(student): Sample config["batch_size"] samples from the replay buffer
-            batch = ...
+            batch = replay_buffer.sample(config["batch_size"])
 
             # Convert to PyTorch tensors
             batch = ptu.from_numpy(batch)
 
             # TODO(student): Train the agent. `batch` is a dictionary of numpy arrays,
-            update_info = ...
+            update_info = agent.update(obs = batch["observations"],
+                                       action = batch["actions"],
+                                       reward = batch["rewards"],
+                                       next_obs = batch["next_observations"],
+                                       done = batch["dones"],
+                                       step = step)
 
             # Logging code
             update_info["epsilon"] = epsilon
@@ -149,6 +172,8 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
 
             logger.log_scalar(np.mean(returns), "eval_return", step)
             logger.log_scalar(np.mean(ep_lens), "eval_ep_len", step)
+
+            print(f"Step: {step}, Eval returns: {np.mean(returns)}, Ep lens: {np.mean(ep_lens)}")
 
             if len(returns) > 1:
                 logger.log_scalar(np.std(returns), "eval/return_std", step)

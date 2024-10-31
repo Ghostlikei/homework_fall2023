@@ -1,4 +1,14 @@
 import os
+import sys
+
+# Get the current directory
+current_dir = os.path.abspath(os.getcwd())
+
+# Add the current directory to the system path if it's not already there
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+import os
 import time
 import yaml
 
@@ -68,7 +78,7 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
             action = env.action_space.sample()
         else:
             # TODO(student): Select an action
-            action = ...
+            action = agent.get_action(observation)
 
         # Step the environment and add the data to the replay buffer
         next_observation, reward, done, info = env.step(action)
@@ -90,8 +100,16 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
         # Train the agent
         if step >= config["training_starts"]:
             # TODO(student): Sample a batch of config["batch_size"] transitions from the replay buffer
-            batch = ...
-            update_info = ...
+            batch = replay_buffer.sample(config["batch_size"])
+            # Convert to PyTorch tensors
+            batch = ptu.from_numpy(batch)
+
+            update_info = agent.update(observations=batch["observations"],
+                                       actions=batch["actions"],
+                                       rewards=batch["rewards"],
+                                       next_observations=batch["next_observations"],
+                                       dones=batch["dones"],
+                                       step=step)
 
             # Logging
             update_info["actor_lr"] = agent.actor_lr_scheduler.get_last_lr()[0]
@@ -116,6 +134,8 @@ def run_training_loop(config: dict, logger: Logger, args: argparse.Namespace):
 
             logger.log_scalar(np.mean(returns), "eval_return", step)
             logger.log_scalar(np.mean(ep_lens), "eval_ep_len", step)
+
+            print(f"Step: {step}, Eval returns: {np.mean(returns)}, Ep lens: {np.mean(ep_lens)}")
 
             if len(returns) > 1:
                 logger.log_scalar(np.std(returns), "eval/return_std", step)
