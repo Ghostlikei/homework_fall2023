@@ -4,6 +4,15 @@ Runs behavior cloning and DAgger for homework 1
 Functions to edit:
     1. run_training_loop
 """
+import os
+import sys
+
+# Get the current directory
+current_dir = os.path.abspath(os.getcwd())
+
+# Add the current directory to the system path if it's not already there
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 
 import pickle
 import os
@@ -26,7 +35,6 @@ MAX_NVIDEO = 2
 MAX_VIDEO_LEN = 40  # we overwrite this in the code below
 
 MJ_ENV_NAMES = ["Ant-v4", "Walker2d-v4", "HalfCheetah-v4", "Hopper-v4"]
-
 
 def run_training_loop(params):
     """
@@ -73,6 +81,9 @@ def run_training_loop(params):
     # Observation and action sizes
     ob_dim = env.observation_space.shape[0]
     ac_dim = env.action_space.shape[0]
+
+    # print("Ob dim: ", ob_dim)
+    # print("Ac dim: ", ac_dim)
 
     # simulation timestep, will be used for video saving
     if 'model' in dir(env):
@@ -156,8 +167,18 @@ def run_training_loop(params):
           # HINT1: how much data = params['train_batch_size']
           # HINT2: use np.random.permutation to sample random indices
           # HINT3: return corresponding data points from each array (i.e., not different indices from each array)
-          # for imitation learning, we only need observations and actions.  
-          ob_batch, ac_batch = TODO
+          # for imitation learning, we only need observations and actions.
+
+          # Load obs and acs
+          train_batch_size = params['train_batch_size']
+
+          batch_replay_obs = np.random.permutation(replay_buffer.obs).reshape(replay_buffer.obs.shape[0] // train_batch_size, train_batch_size, ob_dim)
+          batch_replay_acs = np.random.permutation(replay_buffer.acs).reshape(replay_buffer.acs.shape[0] // train_batch_size, train_batch_size, ac_dim)
+                  
+          ob_batch, ac_batch = batch_replay_obs[0], batch_replay_acs[0]
+
+        #   print("Ob batch: ", ob_batch)
+        #   print("Ac Batch: ", ac_batch)
 
           # use the sampled data to train an agent
           train_log = actor.update(ob_batch, ac_batch)
